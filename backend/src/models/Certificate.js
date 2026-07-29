@@ -11,6 +11,7 @@ const certificateSchema = new mongoose.Schema(
     // Snapshot fields: what the certificate said at the moment it was issued.
     // Kept separate from Student so later edits to a student never rewrite history.
     studentNameSnapshot: { type: String, required: true },
+    guardianNameSnapshot: { type: String, required: true },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
 

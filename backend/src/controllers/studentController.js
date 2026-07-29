@@ -90,6 +90,7 @@ const createStudent = asyncHandler(async (req, res) => {
     faculty: facultyDoc._id,
     grade: gradeDoc._id,
     studentNameSnapshot: fullName,
+    guardianNameSnapshot: guardianName,
     startDate,
     endDate,
     templateVersion: template.version,

@@ -1,10 +1,7 @@
 node_modules/
 .env
 .env.local
-
-# Generated certificate PDFs — regenerated on demand, not source
-backend/storage/certificates/*
-!backend/storage/certificates/.gitkeep
+.vercel
 
 # Build output
 frontend/dist/

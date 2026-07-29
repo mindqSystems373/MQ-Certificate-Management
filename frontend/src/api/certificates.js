@@ -4,8 +4,6 @@ export const searchCertificates = (params) => axiosClient.get('/certificates/sea
 export const getCertificateByNumber = (number) => axiosClient.get(`/certificates/${number}`).then((r) => r.data);
 export const resendCertificate = (number) => axiosClient.post(`/certificates/${number}/resend`).then((r) => r.data);
 
-export const downloadCertificateUrl = (number) => `/api/certificates/${number}/download`;
-
 // A plain <a href> download won't carry the Authorization header, so the
 // download button fetches the PDF as a blob (with the JWT attached) and then
 // triggers a client-side save — same UX, but respects the protected route.

@@ -4,10 +4,43 @@ const ApiError = require('../utils/ApiError');
 const { sendSuccess } = require('../utils/ApiResponse');
 const Certificate = require('../models/Certificate');
 const ActivityLog = require('../models/ActivityLog');
-const { getAbsolutePath } = require('../services/pdfService');
+const Settings = require('../models/Settings');
+const { getAbsolutePath, generateCertificatePdf } = require('../services/pdfService');
 const { sendCertificateEmail } = require('../services/emailService');
+const defaultTemplate = require('../templates/defaultTemplate');
 
 const populateOpts = ['student', 'course', 'faculty', 'grade'];
+
+/**
+ * PDFs live in os.tmpdir() (see pdfService.js) — never assumed durable, since
+ * a serverless host's /tmp isn't shared across invocations. Certificate
+ * documents hold everything needed to re-render byte-for-byte the same file
+ * (student/guardian names are snapshotted, so this stays correct even if the
+ * Student record is edited later), so a cache miss just regenerates instead
+ * of erroring.
+ */
+async function ensureCertificatePdf(certificate) {
+  const absolutePath = getAbsolutePath(certificate.pdfPath);
+  if (fs.existsSync(absolutePath)) return absolutePath;
+
+  await certificate.populate(['course', 'faculty', 'grade']);
+  const templateSetting = await Settings.findOne({ key: 'certificateTemplate' });
+  const template = templateSetting?.value || defaultTemplate;
+
+  const { absolutePath: regeneratedPath } = await generateCertificatePdf({
+    certificateNumber: certificate.certificateNumber,
+    studentName: certificate.studentNameSnapshot,
+    guardianName: certificate.guardianNameSnapshot,
+    courseName: certificate.course.name,
+    facultyName: certificate.faculty.name,
+    grade: certificate.grade.label,
+    startDate: certificate.startDate,
+    endDate: certificate.endDate,
+    issueDate: certificate.issueDate,
+    template,
+  });
+  return regeneratedPath;
+}
 
 const search = asyncHandler(async (req, res) => {
   const { q, course, faculty, status, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
@@ -68,8 +101,7 @@ const downloadByNumber = asyncHandler(async (req, res) => {
   const certificate = await Certificate.findOne({ certificateNumber: req.params.number });
   if (!certificate) throw new ApiError(404, 'Certificate not found');
 
-  const absolutePath = getAbsolutePath(certificate.pdfPath);
-  if (!fs.existsSync(absolutePath)) throw new ApiError(404, 'Certificate PDF file is missing on the server');
+  const absolutePath = await ensureCertificatePdf(certificate);
 
   await ActivityLog.create({
     type: 'certificate_downloaded',
@@ -85,7 +117,7 @@ const resend = asyncHandler(async (req, res) => {
   const certificate = await Certificate.findOne({ certificateNumber: req.params.number }).populate('student', 'fullName email');
   if (!certificate) throw new ApiError(404, 'Certificate not found');
 
-  const absolutePath = getAbsolutePath(certificate.pdfPath);
+  const absolutePath = await ensureCertificatePdf(certificate);
   const result = await sendCertificateEmail({
     to: certificate.student.email,
     studentName: certificate.student.fullName,

@@ -18,8 +18,33 @@ const settingsRoutes = require('./routes/settingsRoutes');
 
 const app = express();
 
+// Vercel (and most PaaS hosts) sit in front of the app as a reverse proxy and
+// set X-Forwarded-For; without `trust proxy`, express-rate-limit refuses to
+// trust that header (correctly, since blindly trusting it behind an
+// untrusted proxy lets clients spoof their rate-limit identity) and throws.
+// `1` trusts exactly one hop, matching Vercel's single edge proxy.
+app.set('trust proxy', 1);
+
 app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
+// The frontend and backend are deployed as two separate Vercel projects, so
+// the frontend's exact production URL isn't known until after the backend is
+// already live. Rather than redeploy the backend once that URL exists, this
+// allows CLIENT_URL (for local dev) plus any *.vercel.app origin (covers both
+// projects' preview and production URLs) — acceptable for this demo; a
+// hardened production setup would pin this to the final custom domain.
+const allowedOriginPattern = /\.vercel\.app$/;
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || origin === process.env.CLIENT_URL || allowedOriginPattern.test(new URL(origin).hostname)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: '1mb' }));
 app.use(mongoSanitize());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));

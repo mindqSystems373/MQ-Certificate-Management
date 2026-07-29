@@ -1,8 +1,14 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
+// Local dev proxies /api to the backend (see vite.config.js), so a relative
+// path works there. In production the frontend and backend are two separate
+// Vercel projects with different domains, so VITE_API_URL (baked in at build
+// time via .env.production) points at the deployed backend's own /api.
+const apiBase = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
+
 const axiosClient = axios.create({
-  baseURL: '/api',
+  baseURL: apiBase,
 });
 
 axiosClient.interceptors.request.use((config) => {

@@ -1,9 +1,15 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const QRCode = require('qrcode');
 
-const STORAGE_DIR = path.join(__dirname, '..', '..', 'storage', 'certificates');
+// Vercel's filesystem is read-only except /tmp, and /tmp isn't shared across
+// invocations — so PDFs are never treated as durably stored here. Certificate
+// records in Mongo are the source of truth; downloadByNumber (certificateController.js)
+// regenerates the PDF on demand whenever it isn't sitting in this run's tmp
+// cache, which also means this path being ephemeral is completely fine.
+const STORAGE_DIR = path.join(os.tmpdir(), 'mindq-certificates');
 const TEMPLATES_DIR = path.join(__dirname, '..', 'assets', 'templates');
 const FONTS_DIR = path.join(__dirname, '..', 'assets', 'fonts');
 const SERIF_FONT = path.join(FONTS_DIR, 'EBGaramond-Regular.ttf');
@@ -90,7 +96,7 @@ async function generateCertificatePdf({
 
   const fileName = `${certificateNumber}.pdf`;
   const filePath = path.join(STORAGE_DIR, fileName);
-  const relativePath = path.posix.join('certificates', fileName);
+  const relativePath = fileName; // stored on Student/Certificate docs; resolved via getAbsolutePath
 
   const verifyUrl = template.verifyUrl;
   const qrPayload = JSON.stringify({ certificateNumber, studentName, courseName, verify: verifyUrl });
@@ -131,7 +137,7 @@ async function generateCertificatePdf({
 }
 
 function getAbsolutePath(relativePath) {
-  return path.join(__dirname, '..', '..', 'storage', relativePath);
+  return path.join(STORAGE_DIR, relativePath);
 }
 
 module.exports = { generateCertificatePdf, getAbsolutePath, STORAGE_DIR };

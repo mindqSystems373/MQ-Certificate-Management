@@ -4,7 +4,7 @@ const connectDB = require('./src/config/db');
 
 const PORT = process.env.PORT || 5000;
 
-connectDB().then(() => {
+connectDB({ exitOnFailure: true }).then(() => {
   app.listen(PORT, () => {
     console.log(`Mind Q Certificate API listening on http://localhost:${PORT}`);
   });
