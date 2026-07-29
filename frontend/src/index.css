@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #eef5fb;
+  --color-brand-100: #d6e7f5;
+  --color-brand-200: #adcfeb;
+  --color-brand-300: #7bb0dc;
+  --color-brand-400: #478fca;
+  --color-brand-500: #2672ac;
+  --color-brand-600: #0f4c81;
+  --color-brand-700: #0d3d68;
+  --color-brand-800: #0b3153;
+  --color-brand-900: #092944;
+
+  --color-gold-400: #dfc25f;
+  --color-gold-500: #c9a227;
+  --color-gold-600: #a8841d;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  font-family: var(--font-sans);
+}
+
+body {
+  @apply bg-slate-50 text-slate-800;
+  margin: 0;
+}
+
+.skeleton {
+  @apply animate-pulse bg-slate-200 rounded;
+}
+
+.input {
+  @apply w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none transition-colors;
+  @apply focus:border-brand-500 focus:ring-1 focus:ring-brand-500;
+}
+
+.btn-primary {
+  @apply inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition-colors disabled:opacity-60;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 8px;
+}
