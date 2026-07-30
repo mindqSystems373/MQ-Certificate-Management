@@ -28,8 +28,8 @@ npm run dev
 Frontend: http://localhost:5173 · Backend: http://localhost:5000
 
 Demo logins (created by `npm run seed`):
-- Super Admin — `admin@mindq.example` / `Admin@123`
-- Management — `management@mindq.example` / `Manage@123`
+- Super Admin — `admin@mindq` / `mindq@admin`
+- Management — `management@mindq` / `mindq@management`
 
 ## Stack
 

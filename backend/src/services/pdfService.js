@@ -1,15 +1,12 @@
-const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const QRCode = require('qrcode');
 
-// Vercel's filesystem is read-only except /tmp, and /tmp isn't shared across
-// invocations — so PDFs are never treated as durably stored here. Certificate
-// records in Mongo are the source of truth; downloadByNumber (certificateController.js)
-// regenerates the PDF on demand whenever it isn't sitting in this run's tmp
-// cache, which also means this path being ephemeral is completely fine.
-const STORAGE_DIR = path.join(os.tmpdir(), 'mindq-certificates');
+// Generated fully in memory and returned as a Buffer — Vercel's filesystem is
+// read-only except /tmp, and /tmp isn't shared across invocations, so nothing
+// written to disk here would survive to be read by a later request anyway.
+// The caller (studentController.js) persists the returned buffer straight
+// into Certificate.pdfData; that document is the only copy that matters.
 const TEMPLATES_DIR = path.join(__dirname, '..', 'assets', 'templates');
 const FONTS_DIR = path.join(__dirname, '..', 'assets', 'fonts');
 const SERIF_FONT = path.join(FONTS_DIR, 'EBGaramond-Regular.ttf');
@@ -92,20 +89,14 @@ async function generateCertificatePdf({
   issueDate,
   template,
 }) {
-  if (!fs.existsSync(STORAGE_DIR)) fs.mkdirSync(STORAGE_DIR, { recursive: true });
-
-  const fileName = `${certificateNumber}.pdf`;
-  const filePath = path.join(STORAGE_DIR, fileName);
-  const relativePath = fileName; // stored on Student/Certificate docs; resolved via getAbsolutePath
-
   const verifyUrl = template.verifyUrl;
   const qrPayload = JSON.stringify({ certificateNumber, studentName, courseName, verify: verifyUrl });
   const qrDataUrl = await QRCode.toDataURL(qrPayload, { margin: 1, width: 300 });
   const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
 
   const doc = new PDFDocument({ size: 'A4', margin: 0 });
-  const stream = fs.createWriteStream(filePath);
-  doc.pipe(stream);
+  const chunks = [];
+  doc.on('data', (chunk) => chunks.push(chunk));
 
   doc.registerFont('Serif', SERIF_FONT);
 
@@ -126,18 +117,13 @@ async function generateCertificatePdf({
 
   doc.image(qrBuffer, scale(QR_BOX.x), scaleY(QR_BOX.y), { width: scale(QR_BOX.width), height: scaleY(QR_BOX.height) });
 
-  doc.end();
-
-  await new Promise((resolve, reject) => {
-    stream.on('finish', resolve);
-    stream.on('error', reject);
+  const pdfData = await new Promise((resolve, reject) => {
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+    doc.end();
   });
 
-  return { relativePath, absolutePath: filePath, qrPayload };
+  return { pdfData, qrPayload };
 }
 
-function getAbsolutePath(relativePath) {
-  return path.join(STORAGE_DIR, relativePath);
-}
-
-module.exports = { generateCertificatePdf, getAbsolutePath, STORAGE_DIR };
+module.exports = { generateCertificatePdf };

@@ -8,7 +8,11 @@ const router = express.Router();
 
 router.post(
   '/login',
-  [body('email').isEmail().withMessage('Valid email is required'), body('password').notEmpty().withMessage('Password is required')],
+  // Admin login is an internal identifier (e.g. "admin@mindq"), not necessarily
+  // a deliverable email address — so this only checks it's present, not RFC-valid.
+  // The student "Email Address" field in studentRoutes.js keeps strict isEmail()
+  // since resend/notification actually needs to reach that address.
+  [body('email').trim().notEmpty().withMessage('Login ID is required'), body('password').notEmpty().withMessage('Password is required')],
   validate,
   login
 );

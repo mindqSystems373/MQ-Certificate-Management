@@ -17,7 +17,7 @@ const studentSchema = new mongoose.Schema(
     // (the Certificate collection remains the source of truth for issuance history).
     certificateNumber: { type: String, unique: true, sparse: true },
     certificateTemplateVersion: { type: String },
-    certificatePDF: { type: String }, // relative path under /storage/certificates
+    certificatePDF: { type: Boolean, default: false }, // PDF bytes live on the Certificate document (pdfData), not here
 
     status: { type: String, enum: ['pending', 'issued'], default: 'pending' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', required: true },

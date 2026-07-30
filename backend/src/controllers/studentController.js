@@ -65,11 +65,11 @@ const createStudent = asyncHandler(async (req, res) => {
   // Step 2: Generate certificate number (atomic, never duplicates)
   const certificateNumber = await getNextCertificateNumber();
 
-  // Step 3 + 4: Generate PDF from the current template and persist it to disk
+  // Step 3 + 4: Generate the PDF from the current template, in memory
   const templateSetting = await Settings.findOne({ key: 'certificateTemplate' });
   const template = templateSetting?.value || defaultTemplate;
 
-  const { relativePath, qrPayload } = await generateCertificatePdf({
+  const { pdfData, qrPayload } = await generateCertificatePdf({
     certificateNumber,
     studentName: fullName,
     guardianName,
@@ -95,14 +95,14 @@ const createStudent = asyncHandler(async (req, res) => {
     endDate,
     templateVersion: template.version,
     issueDate: new Date(),
-    pdfPath: relativePath,
+    pdfData,
     qrPayload,
     createdBy: req.admin._id,
   });
 
   student.certificateNumber = certificateNumber;
   student.certificateTemplateVersion = template.version;
-  student.certificatePDF = relativePath;
+  student.certificatePDF = true;
   student.status = 'issued';
   await student.save();
 
@@ -114,9 +114,16 @@ const createStudent = asyncHandler(async (req, res) => {
     meta: { certificateNumber, studentId: student._id },
   });
 
+  // `select: false` on Certificate.pdfData only suppresses the field on
+  // *queries* — this document is still fresh from .create() with the full
+  // buffer attached in memory, so it has to be stripped by hand or the
+  // response ships the raw PDF bytes as a giant JSON byte array.
+  const certificateResponse = certificate.toObject();
+  delete certificateResponse.pdfData;
+
   sendSuccess(res, 201, 'Student created and certificate generated', {
     student,
-    certificate,
+    certificate: certificateResponse,
     downloadUrl: `/api/certificates/${certificateNumber}/download`,
   });
 });

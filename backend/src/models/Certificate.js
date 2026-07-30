@@ -17,7 +17,13 @@ const certificateSchema = new mongoose.Schema(
 
     templateVersion: { type: String, required: true },
     issueDate: { type: Date, required: true, default: Date.now },
-    pdfPath: { type: String, required: true },
+    // The actual issued PDF, stored as bytes in Mongo rather than on disk —
+    // a serverless host's filesystem isn't durable/shared across invocations,
+    // and this guarantees "download" always returns the exact file that was
+    // issued rather than a re-render. `select: false` keeps it out of list/
+    // search queries (which would otherwise ship the full binary in every
+    // row); fetch it explicitly with .select('+pdfData') for download/resend.
+    pdfData: { type: Buffer, required: true, select: false },
     qrPayload: { type: String },
 
     status: { type: String, enum: ['issued', 'resent'], default: 'issued' },

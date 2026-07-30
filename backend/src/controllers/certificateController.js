@@ -1,46 +1,11 @@
-const fs = require('fs');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { sendSuccess } = require('../utils/ApiResponse');
 const Certificate = require('../models/Certificate');
 const ActivityLog = require('../models/ActivityLog');
-const Settings = require('../models/Settings');
-const { getAbsolutePath, generateCertificatePdf } = require('../services/pdfService');
 const { sendCertificateEmail } = require('../services/emailService');
-const defaultTemplate = require('../templates/defaultTemplate');
 
 const populateOpts = ['student', 'course', 'faculty', 'grade'];
-
-/**
- * PDFs live in os.tmpdir() (see pdfService.js) — never assumed durable, since
- * a serverless host's /tmp isn't shared across invocations. Certificate
- * documents hold everything needed to re-render byte-for-byte the same file
- * (student/guardian names are snapshotted, so this stays correct even if the
- * Student record is edited later), so a cache miss just regenerates instead
- * of erroring.
- */
-async function ensureCertificatePdf(certificate) {
-  const absolutePath = getAbsolutePath(certificate.pdfPath);
-  if (fs.existsSync(absolutePath)) return absolutePath;
-
-  await certificate.populate(['course', 'faculty', 'grade']);
-  const templateSetting = await Settings.findOne({ key: 'certificateTemplate' });
-  const template = templateSetting?.value || defaultTemplate;
-
-  const { absolutePath: regeneratedPath } = await generateCertificatePdf({
-    certificateNumber: certificate.certificateNumber,
-    studentName: certificate.studentNameSnapshot,
-    guardianName: certificate.guardianNameSnapshot,
-    courseName: certificate.course.name,
-    facultyName: certificate.faculty.name,
-    grade: certificate.grade.label,
-    startDate: certificate.startDate,
-    endDate: certificate.endDate,
-    issueDate: certificate.issueDate,
-    template,
-  });
-  return regeneratedPath;
-}
 
 const search = asyncHandler(async (req, res) => {
   const { q, course, faculty, status, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
@@ -64,6 +29,8 @@ const search = asyncHandler(async (req, res) => {
   const pageNum = Math.max(1, Number(page));
   const limitNum = Math.min(100, Math.max(1, Number(limit)));
 
+  // pdfData is `select: false` on the schema, so it's never pulled into these
+  // list/search results — only downloadByNumber and resend fetch it explicitly.
   const [items, total] = await Promise.all([
     Certificate.find(filter)
       .populate('student', 'fullName email phone')
@@ -98,10 +65,8 @@ const getByNumber = asyncHandler(async (req, res) => {
 });
 
 const downloadByNumber = asyncHandler(async (req, res) => {
-  const certificate = await Certificate.findOne({ certificateNumber: req.params.number });
+  const certificate = await Certificate.findOne({ certificateNumber: req.params.number }).select('+pdfData');
   if (!certificate) throw new ApiError(404, 'Certificate not found');
-
-  const absolutePath = await ensureCertificatePdf(certificate);
 
   await ActivityLog.create({
     type: 'certificate_downloaded',
@@ -110,19 +75,22 @@ const downloadByNumber = asyncHandler(async (req, res) => {
     description: `${req.admin.name} downloaded certificate ${certificate.certificateNumber}`,
   });
 
-  res.download(absolutePath, `${certificate.certificateNumber}.pdf`);
+  res.set('Content-Type', 'application/pdf');
+  res.set('Content-Disposition', `attachment; filename="${certificate.certificateNumber}.pdf"`);
+  res.send(certificate.pdfData);
 });
 
 const resend = asyncHandler(async (req, res) => {
-  const certificate = await Certificate.findOne({ certificateNumber: req.params.number }).populate('student', 'fullName email');
+  const certificate = await Certificate.findOne({ certificateNumber: req.params.number })
+    .select('+pdfData')
+    .populate('student', 'fullName email');
   if (!certificate) throw new ApiError(404, 'Certificate not found');
 
-  const absolutePath = await ensureCertificatePdf(certificate);
   const result = await sendCertificateEmail({
     to: certificate.student.email,
     studentName: certificate.student.fullName,
     certificateNumber: certificate.certificateNumber,
-    pdfAbsolutePath: absolutePath,
+    pdfBuffer: certificate.pdfData,
   });
 
   certificate.status = 'resent';

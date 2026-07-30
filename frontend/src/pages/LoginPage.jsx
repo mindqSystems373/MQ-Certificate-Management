@@ -8,8 +8,10 @@ import { HiOutlineMail, HiOutlineLockClosed } from 'react-icons/hi';
 import { login as loginApi } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 
+// Login ID is an internal identifier (e.g. "admin@mindq"), not necessarily a
+// full RFC-valid email — matches the backend's relaxed check in authRoutes.js.
 const schema = z.object({
-  email: z.string().min(1, 'Email is required').email('Enter a valid email'),
+  email: z.string().min(1, 'Login ID is required'),
   password: z.string().min(1, 'Password is required'),
   rememberMe: z.boolean().optional(),
 });
@@ -50,13 +52,13 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="px-8 py-8 space-y-5">
           <div>
-            <label className="text-sm font-medium text-slate-700">Email</label>
+            <label className="text-sm font-medium text-slate-700">Login ID</label>
             <div className="mt-1 flex items-center rounded-lg border border-slate-300 px-3 focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500">
               <HiOutlineMail className="text-slate-400" />
               <input
-                type="email"
+                type="text"
                 autoComplete="username"
-                placeholder="you@mindq.example"
+                placeholder="admin@mindq"
                 className="w-full border-0 bg-transparent px-2 py-2.5 text-sm outline-none"
                 {...register('email')}
               />
@@ -94,8 +96,8 @@ export default function LoginPage() {
 
           <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-xs text-slate-500 space-y-1">
             <p className="font-medium text-slate-600">Demo credentials</p>
-            <p>Super Admin: admin@mindq.example / Admin@123</p>
-            <p>Management: management@mindq.example / Manage@123</p>
+            <p>Super Admin: admin@mindq / mindq@admin</p>
+            <p>Management: management@mindq / mindq@management</p>
           </div>
         </form>
       </div>

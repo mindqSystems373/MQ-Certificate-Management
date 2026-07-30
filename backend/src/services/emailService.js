@@ -26,7 +26,7 @@ function getTransporter() {
  * ops drops SMTP credentials into .env for the client demo — no code change
  * needed to flip that switch.
  */
-async function sendCertificateEmail({ to, studentName, certificateNumber, pdfAbsolutePath }) {
+async function sendCertificateEmail({ to, studentName, certificateNumber, pdfBuffer }) {
   if (!isConfigured()) {
     return { simulated: true, to };
   }
@@ -36,7 +36,7 @@ async function sendCertificateEmail({ to, studentName, certificateNumber, pdfAbs
     to,
     subject: `Your Mind Q Systems Certificate (${certificateNumber})`,
     text: `Dear ${studentName},\n\nPlease find attached your certificate (${certificateNumber}).\n\nRegards,\nMind Q Systems`,
-    attachments: [{ filename: `${certificateNumber}.pdf`, path: pdfAbsolutePath }],
+    attachments: [{ filename: `${certificateNumber}.pdf`, content: pdfBuffer }],
   });
 
   return { simulated: false, to };

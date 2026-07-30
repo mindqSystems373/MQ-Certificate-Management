@@ -12,9 +12,14 @@ const defaultTemplate = require('../templates/defaultTemplate');
 async function seed() {
   await connectDB();
 
+  // Superseded logins from an earlier demo pass — remove so re-running this
+  // script against an already-seeded database ends up with only the current
+  // credentials below, not both sets active at once.
+  await Admin.deleteMany({ email: { $in: ['admin@mindq.example', 'management@mindq.example'] } });
+
   const admins = [
-    { name: 'Super Admin', email: 'admin@mindq.example', password: 'Admin@123', role: 'superadmin' },
-    { name: 'Management User', email: 'management@mindq.example', password: 'Manage@123', role: 'management' },
+    { name: 'Super Admin', email: 'admin@mindq', password: 'mindq@admin', role: 'superadmin' },
+    { name: 'Management User', email: 'management@mindq', password: 'mindq@management', role: 'management' },
   ];
   for (const a of admins) {
     const exists = await Admin.findOne({ email: a.email });
@@ -74,8 +79,8 @@ async function seed() {
   );
 
   console.log('Seed complete.');
-  console.log('  Super Admin login:  admin@mindq.example / Admin@123');
-  console.log('  Management login:   management@mindq.example / Manage@123');
+  console.log('  Super Admin login:  admin@mindq / mindq@admin');
+  console.log('  Management login:   management@mindq / mindq@management');
 
   await mongoose.disconnect();
   process.exit(0);

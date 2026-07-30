@@ -30,8 +30,8 @@ async function main() {
   const defaultTemplate = require('../src/templates/defaultTemplate');
 
   await Admin.create([
-    { name: 'Super Admin', email: 'admin@mindq.example', password: 'Admin@123', role: 'superadmin' },
-    { name: 'Management User', email: 'management@mindq.example', password: 'Manage@123', role: 'management' },
+    { name: 'Super Admin', email: 'admin@mindq', password: 'mindq@admin', role: 'superadmin' },
+    { name: 'Management User', email: 'management@mindq', password: 'mindq@management', role: 'management' },
   ]);
 
   await Course.create([
@@ -61,8 +61,8 @@ async function main() {
   await Settings.create({ key: 'studentCounter', value: { sequence: 0 } });
   await Settings.create({ key: 'certificateTemplate', value: defaultTemplate });
 
-  console.log('In-memory MongoDB seeded. Super Admin: admin@mindq.example / Admin@123');
-  console.log('Management: management@mindq.example / Manage@123');
+  console.log('In-memory MongoDB seeded. Super Admin: admin@mindq / mindq@admin');
+  console.log('Management: management@mindq / mindq@management');
 
   const app = require('../src/app');
   app.listen(process.env.PORT, () => {

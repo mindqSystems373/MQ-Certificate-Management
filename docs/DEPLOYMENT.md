@@ -81,8 +81,8 @@ npm run dev
 
 Runs on `http://localhost:5173` and proxies `/api/*` to `http://localhost:5000` (see `vite.config.js`). Log in with the seeded accounts:
 
-- Super Admin: `admin@mindq.example` / `Admin@123`
-- Management: `management@mindq.example` / `Manage@123`
+- Super Admin: `admin@mindq` / `mindq@admin`
+- Management: `management@mindq` / `mindq@management`
 
 **Change these passwords (or create new admin accounts and disable the seeded ones) before any real deployment.**
 
