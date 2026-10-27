@@ -15,6 +15,7 @@ const facultyRoutes = require('./routes/facultyRoutes');
 const gradeRoutes = require('./routes/gradeRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
+const publicRoutes = require('./routes/publicRoutes');
 
 const app = express();
 
@@ -66,6 +67,7 @@ app.use('/api/faculties', facultyRoutes);
 app.use('/api/grades', gradeRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/public', publicRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

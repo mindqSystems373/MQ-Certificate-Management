@@ -4,6 +4,7 @@ const { sendSuccess } = require('../utils/ApiResponse');
 const Certificate = require('../models/Certificate');
 const ActivityLog = require('../models/ActivityLog');
 const { sendCertificateEmail } = require('../services/emailService');
+const { renderCertificatePdf } = require('./publicController');
 
 const populateOpts = ['student', 'course', 'faculty', 'grade'];
 
@@ -29,8 +30,6 @@ const search = asyncHandler(async (req, res) => {
   const pageNum = Math.max(1, Number(page));
   const limitNum = Math.min(100, Math.max(1, Number(limit)));
 
-  // pdfData is `select: false` on the schema, so it's never pulled into these
-  // list/search results — only downloadByNumber and resend fetch it explicitly.
   const [items, total] = await Promise.all([
     Certificate.find(filter)
       .populate('student', 'fullName email phone')
@@ -65,8 +64,9 @@ const getByNumber = asyncHandler(async (req, res) => {
 });
 
 const downloadByNumber = asyncHandler(async (req, res) => {
-  const certificate = await Certificate.findOne({ certificateNumber: req.params.number }).select('+pdfData');
+  const certificate = await Certificate.findOne({ certificateNumber: req.params.number });
   if (!certificate) throw new ApiError(404, 'Certificate not found');
+  const pdfData = await renderCertificatePdf(certificate);
 
   await ActivityLog.create({
     type: 'certificate_downloaded',
@@ -77,20 +77,19 @@ const downloadByNumber = asyncHandler(async (req, res) => {
 
   res.set('Content-Type', 'application/pdf');
   res.set('Content-Disposition', `attachment; filename="${certificate.certificateNumber}.pdf"`);
-  res.send(certificate.pdfData);
+  res.send(pdfData);
 });
 
 const resend = asyncHandler(async (req, res) => {
-  const certificate = await Certificate.findOne({ certificateNumber: req.params.number })
-    .select('+pdfData')
-    .populate('student', 'fullName email');
+  const certificate = await Certificate.findOne({ certificateNumber: req.params.number }).populate('student', 'fullName email');
   if (!certificate) throw new ApiError(404, 'Certificate not found');
+  const pdfData = await renderCertificatePdf(certificate);
 
   const result = await sendCertificateEmail({
     to: certificate.student.email,
     studentName: certificate.student.fullName,
     certificateNumber: certificate.certificateNumber,
-    pdfBuffer: certificate.pdfData,
+    pdfBuffer: pdfData,
   });
 
   certificate.status = 'resent';

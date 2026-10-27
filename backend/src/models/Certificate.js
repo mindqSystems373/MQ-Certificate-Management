@@ -9,21 +9,22 @@ const certificateSchema = new mongoose.Schema(
     grade: { type: mongoose.Schema.Types.ObjectId, ref: 'Grade', required: true },
 
     // Snapshot fields: what the certificate said at the moment it was issued.
-    // Kept separate from Student so later edits to a student never rewrite history.
+    // Kept separate from Student/Course/Faculty/Grade so a later edit to any
+    // of those (or even a future rename) never silently rewrites history.
+    // Nothing about the PDF itself is stored anywhere (see pdfService.js) —
+    // every view/download regenerates it fresh from exactly these fields, so
+    // this set is the only thing standing between "frozen as issued" and a
+    // certificate drifting whenever something it referenced changes later.
     studentNameSnapshot: { type: String, required: true },
     guardianNameSnapshot: { type: String, required: true },
+    courseNameSnapshot: { type: String, required: true },
+    facultyNameSnapshot: { type: String, required: true },
+    gradeLabelSnapshot: { type: String, required: true },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
 
     templateVersion: { type: String, required: true },
     issueDate: { type: Date, required: true, default: Date.now },
-    // The actual issued PDF, stored as bytes in Mongo rather than on disk —
-    // a serverless host's filesystem isn't durable/shared across invocations,
-    // and this guarantees "download" always returns the exact file that was
-    // issued rather than a re-render. `select: false` keeps it out of list/
-    // search queries (which would otherwise ship the full binary in every
-    // row); fetch it explicitly with .select('+pdfData') for download/resend.
-    pdfData: { type: Buffer, required: true, select: false },
     qrPayload: { type: String },
 
     status: { type: String, enum: ['issued', 'resent'], default: 'issued' },

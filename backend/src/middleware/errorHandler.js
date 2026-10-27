@@ -16,8 +16,16 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
     message = Object.values(err.errors).map((e) => e.message).join(', ');
   } else if (err.code === 11000) {
     statusCode = 409;
-    const field = Object.keys(err.keyValue || {})[0] || 'field';
-    message = `Duplicate value for ${field}: "${err.keyValue?.[field]}" already exists`;
+    const keys = Object.keys(err.keyValue || {});
+    const field = keys[0] || 'field';
+    if (keys.includes('course')) {
+      // Student's {email,course} / {phone,course} compound indexes — a plain
+      // "already exists" reads as "this student can never enroll again",
+      // which is wrong now that the same person can take multiple courses.
+      message = `A student with this ${field} is already registered for this course`;
+    } else {
+      message = `Duplicate value for ${field}: "${err.keyValue?.[field]}" already exists`;
+    }
   } else if (err.name === 'CastError') {
     statusCode = 400;
     message = `Invalid value for ${err.path}: ${err.value}`;

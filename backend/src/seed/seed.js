@@ -72,9 +72,14 @@ async function seed() {
     { $setOnInsert: { key: 'studentCounter', value: { sequence: 0 } } },
     { upsert: true }
   );
+  // Unlike the other settings above, this one always overwrites: the template
+  // artwork has no admin-editable fields (see TemplateSettingsPage.jsx), so
+  // the code's defaultTemplate is the single source of truth for which
+  // artwork is active. Re-running the seed after swapping templates in code
+  // is how that change actually takes effect against the database.
   await Settings.findOneAndUpdate(
     { key: 'certificateTemplate' },
-    { $setOnInsert: { key: 'certificateTemplate', value: defaultTemplate } },
+    { key: 'certificateTemplate', value: defaultTemplate },
     { upsert: true }
   );
 

@@ -9,8 +9,11 @@ const Grade = require('../models/Grade');
 const Settings = require('../models/Settings');
 const ActivityLog = require('../models/ActivityLog');
 const { getNextCertificateNumber } = require('../services/certificateNumberService');
-const { generateCertificatePdf } = require('../services/pdfService');
+const { sendAcknowledgmentEmail, sendCertificateIssuedEmail } = require('../services/emailService');
 const defaultTemplate = require('../templates/defaultTemplate');
+
+const FRONTEND_URL = (process.env.FRONTEND_URL || 'https://mindq-certificate-frontend.vercel.app').replace(/\/$/, '');
+const BACKEND_URL = (process.env.BACKEND_URL || 'https://mindq-certificate-backend.vercel.app').replace(/\/$/, '');
 
 async function nextStudentId() {
   const counter = await Settings.findOneAndUpdate(
@@ -22,11 +25,10 @@ async function nextStudentId() {
 }
 
 /**
- * PRD flow: Submit -> Save MongoDB -> Generate Certificate Number -> Generate PDF
- * -> Save PDF -> Dashboard Updated. "Enter Student Data" and "New Certificate
- * Generation" are the same screen/action in this demo (a student is only ever
- * created together with their certificate), matching the Student schema in the
- * PRD which stores certificateNumber/certificatePDF directly on the record.
+ * Submit -> Save MongoDB as 'pending' -> acknowledgment email -> wait for
+ * Management approval. Certificate generation now happens later, in
+ * approveStudents below, once Management has reviewed and approved the
+ * submission — the two are no longer the same step.
  */
 const createStudent = asyncHandler(async (req, res) => {
   const { fullName, guardianName, email, phone, course, faculty, grade, startDate, endDate } = req.body;
@@ -46,7 +48,6 @@ const createStudent = asyncHandler(async (req, res) => {
 
   const studentId = await nextStudentId();
 
-  // Step 1: Save MongoDB (student record, not yet certified)
   const student = await Student.create({
     studentId,
     fullName,
@@ -62,69 +63,110 @@ const createStudent = asyncHandler(async (req, res) => {
     createdBy: req.admin._id,
   });
 
-  // Step 2: Generate certificate number (atomic, never duplicates)
-  const certificateNumber = await getNextCertificateNumber();
+  await ActivityLog.create({
+    type: 'student_submitted',
+    actor: req.admin._id,
+    actorName: req.admin.name,
+    description: `${req.admin.name} submitted ${fullName} for certificate approval`,
+    meta: { studentId: student._id },
+  });
 
-  // Step 3 + 4: Generate the PDF from the current template, in memory
+  // Best-effort: a mail hiccup shouldn't fail the submission itself — the
+  // student record (and Management's pending queue) is already saved either way.
+  try {
+    await sendAcknowledgmentEmail({ to: email, studentName: fullName });
+  } catch (err) {
+    console.error('Acknowledgment email failed:', err.message);
+  }
+
+  sendSuccess(res, 201, 'Details sent to management for approval', { student });
+});
+
+/**
+ * Management approves one or more pending students at once: allocates each
+ * one's certificate number, records the Certificate (data only — no PDF is
+ * generated or stored here, or anywhere; see pdfService.js), flips the
+ * Student to 'issued', and emails the full download/verify details. Runs
+ * sequentially per student so certificate numbers — allocated atomically one
+ * at a time — stay strictly in order.
+ */
+const approveStudents = asyncHandler(async (req, res) => {
+  const { studentIds } = req.body;
+
   const templateSetting = await Settings.findOne({ key: 'certificateTemplate' });
   const template = templateSetting?.value || defaultTemplate;
 
-  const { pdfData, qrPayload } = await generateCertificatePdf({
-    certificateNumber,
-    studentName: fullName,
-    guardianName,
-    courseName: courseDoc.name,
-    facultyName: facultyDoc.name,
-    grade: gradeDoc.label,
-    startDate,
-    endDate,
-    issueDate: new Date(),
-    template,
-  });
+  const approved = [];
+  const failed = [];
 
-  // Step 5: Record the certificate + update the student -> dashboard reflects it
-  const certificate = await Certificate.create({
-    certificateNumber,
-    student: student._id,
-    course: courseDoc._id,
-    faculty: facultyDoc._id,
-    grade: gradeDoc._id,
-    studentNameSnapshot: fullName,
-    guardianNameSnapshot: guardianName,
-    startDate,
-    endDate,
-    templateVersion: template.version,
-    issueDate: new Date(),
-    pdfData,
-    qrPayload,
-    createdBy: req.admin._id,
-  });
+  for (const studentId of studentIds) {
+    try {
+      const student = await Student.findById(studentId).populate('course faculty grade');
+      if (!student) throw new ApiError(404, 'Student not found');
+      if (student.status !== 'pending') throw new ApiError(400, `${student.fullName} is not pending approval`);
 
-  student.certificateNumber = certificateNumber;
-  student.certificateTemplateVersion = template.version;
-  student.certificatePDF = true;
-  student.status = 'issued';
-  await student.save();
+      const certificateNumber = await getNextCertificateNumber();
+      const issueDate = new Date();
+      const verifyUrl = `${FRONTEND_URL}/verification?number=${encodeURIComponent(certificateNumber)}`;
 
-  await ActivityLog.create({
-    type: 'certificate_generated',
-    actor: req.admin._id,
-    actorName: req.admin.name,
-    description: `${req.admin.name} generated certificate ${certificateNumber} for ${fullName}`,
-    meta: { certificateNumber, studentId: student._id },
-  });
+      const certificate = await Certificate.create({
+        certificateNumber,
+        student: student._id,
+        course: student.course._id,
+        faculty: student.faculty._id,
+        grade: student.grade._id,
+        studentNameSnapshot: student.fullName,
+        guardianNameSnapshot: student.guardianName,
+        courseNameSnapshot: student.course.name,
+        facultyNameSnapshot: student.faculty.name,
+        gradeLabelSnapshot: student.grade.label,
+        startDate: student.startDate,
+        endDate: student.endDate,
+        templateVersion: template.version,
+        issueDate,
+        qrPayload: verifyUrl,
+        createdBy: req.admin._id,
+      });
 
-  // `select: false` on Certificate.pdfData only suppresses the field on
-  // *queries* — this document is still fresh from .create() with the full
-  // buffer attached in memory, so it has to be stripped by hand or the
-  // response ships the raw PDF bytes as a giant JSON byte array.
-  const certificateResponse = certificate.toObject();
-  delete certificateResponse.pdfData;
+      student.certificateNumber = certificateNumber;
+      student.certificateTemplateVersion = template.version;
+      student.certificatePDF = true;
+      student.status = 'issued';
+      await student.save();
 
-  sendSuccess(res, 201, 'Student created and certificate generated', {
-    student,
-    certificate: certificateResponse,
-    downloadUrl: `/api/certificates/${certificateNumber}/download`,
+      await ActivityLog.create({
+        type: 'certificate_approved',
+        actor: req.admin._id,
+        actorName: req.admin.name,
+        description: `${req.admin.name} approved and issued certificate ${certificateNumber} for ${student.fullName}`,
+        meta: { certificateNumber, studentId: student._id },
+      });
+
+      try {
+        await sendCertificateIssuedEmail({
+          to: student.email,
+          studentName: student.fullName,
+          email: student.email,
+          phone: student.phone,
+          courseName: student.course.name,
+          facultyName: student.faculty.name,
+          certificateNumber,
+          downloadUrl: `${BACKEND_URL}/api/public/certificates/${certificateNumber}/download`,
+          verifyUrl,
+        });
+      } catch (err) {
+        console.error('Certificate-issued email failed:', err.message);
+      }
+
+      approved.push({ studentId, certificateNumber, fullName: student.fullName });
+    } catch (err) {
+      failed.push({ studentId, message: err.message });
+    }
+  }
+
+  sendSuccess(res, 200, `${approved.length} certificate(s) issued${failed.length ? `, ${failed.length} failed` : ''}`, {
+    approved,
+    failed,
   });
 });
 
@@ -175,4 +217,4 @@ const getStudent = asyncHandler(async (req, res) => {
   sendSuccess(res, 200, 'Student detail', student);
 });
 
-module.exports = { createStudent, listStudents, getStudent };
+module.exports = { createStudent, approveStudents, listStudents, getStudent };

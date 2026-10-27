@@ -1,30 +1,14 @@
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-toastify';
-import { HiOutlineSave } from 'react-icons/hi';
-import { getTemplate, updateTemplate } from '../../api/settings';
+import { useQuery } from '@tanstack/react-query';
+import { getTemplate } from '../../api/settings';
 
+// Every field on the current artwork (file-1.svg) — company name, seal,
+// signature, and every ruled line — is baked into the image itself, so
+// there's nothing left here to edit. This page is intentionally read-only;
+// swapping the template image is a code change (see pdfService.js), not a
+// setting, because the field coordinates are tightly coupled to whichever
+// artwork is active.
 export default function TemplateSettingsPage() {
-  const queryClient = useQueryClient();
   const templateQuery = useQuery({ queryKey: ['certificate-template'], queryFn: getTemplate });
-
-  const { register, handleSubmit, reset } = useForm();
-
-  useEffect(() => {
-    const t = templateQuery.data?.data;
-    if (t) reset({ verifyUrl: t.verifyUrl });
-  }, [templateQuery.data, reset]);
-
-  const mutation = useMutation({
-    mutationFn: (values) => updateTemplate({ verifyUrl: values.verifyUrl }),
-    onSuccess: ({ data }) => {
-      toast.success(`Template updated to ${data.version}`);
-      queryClient.invalidateQueries({ queryKey: ['certificate-template'] });
-    },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to update template'),
-  });
-
   const t = templateQuery.data?.data;
 
   return (
@@ -40,32 +24,21 @@ export default function TemplateSettingsPage() {
 
       {templateQuery.isLoading ? (
         <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton h-10" />)}
+          {Array.from({ length: 3 }).map((_, i) => <div key={i} className="skeleton h-10" />)}
         </div>
       ) : (
-        <div className="space-y-6">
-          <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <p className="text-sm text-slate-600 mb-3">
-              Certificates are generated on Mind Q Systems&rsquo; official template artwork. Company name, seal,
-              signature and footer address are part of that image — the only thing you can adjust here is where the
-              QR verification code points.
-            </p>
-            <p className="text-xs text-slate-400">Template file: {t?.templateImage}</p>
-          </div>
-
-          <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
-            <label className="block">
-              <span className="text-sm font-medium text-slate-700">Verification URL (encoded in each certificate's QR code)</span>
-              <input className="input mt-1" {...register('verifyUrl')} />
-            </label>
-
-            <button type="submit" disabled={mutation.isPending} className="btn-primary">
-              <HiOutlineSave /> {mutation.isPending ? 'Saving…' : 'Save (bumps version)'}
-            </button>
-            <p className="text-xs text-slate-400">
-              Saving creates a new template version. Certificates already issued keep the version they were generated under.
-            </p>
-          </form>
+        <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-2">
+          <p className="text-sm text-slate-600">
+            Certificates are rendered directly onto Mind Q Systems&rsquo; official template artwork. Company name,
+            seal, signature and every ruled line on the certificate are part of that image, so there&rsquo;s nothing
+            to configure here — only the per-student fields (name, course, dates, grade) are filled in at generation
+            time.
+          </p>
+          <p className="text-xs text-slate-400">Template file: {t?.templateImage}</p>
+          <p className="text-xs text-slate-400">
+            Certificates issued before a template change keep rendering exactly as issued — swapping the artwork
+            only affects certificates generated afterward.
+          </p>
         </div>
       )}
     </div>

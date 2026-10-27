@@ -1,12 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { HiOutlineLogout } from 'react-icons/hi';
 import { toast } from 'react-toastify';
-import { useAuthStore } from '../store/authStore';
+import { storeForRole } from '../store/authStore';
 import { logout as logoutApi } from '../api/auth';
 
-export default function Topbar({ title }) {
+export default function Topbar({ title, role }) {
   const navigate = useNavigate();
-  const { admin, logout } = useAuthStore();
+  const { admin, logout } = storeForRole(role)();
 
   async function handleLogout() {
     try {

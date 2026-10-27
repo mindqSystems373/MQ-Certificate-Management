@@ -1,18 +1,22 @@
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { DataGrid } from '@mui/x-data-grid';
-import { HiOutlineSearch } from 'react-icons/hi';
-import { listStudents } from '../../api/students';
+import { toast } from 'react-toastify';
+import { HiOutlineSearch, HiOutlineCheckCircle } from 'react-icons/hi';
+import { listStudents, approveStudents } from '../../api/students';
 import CertificateActions from '../../components/CertificateActions';
 
 const STATUS_LABELS = { issued: 'Issued Certificates', pending: 'Not Issued Certificates' };
 
 export default function StudentsListPage() {
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const status = searchParams.get('status') || '';
+  const isPendingView = status === 'pending';
   const [q, setQ] = useState('');
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const studentsQuery = useQuery({
     queryKey: ['students', q, status, paginationModel.page, paginationModel.pageSize],
@@ -28,6 +32,23 @@ export default function StudentsListPage() {
 
   const rows = studentsQuery.data?.data?.items || [];
   const total = studentsQuery.data?.data?.pagination?.total || 0;
+
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [status]);
+
+  const approveMutation = useMutation({
+    mutationFn: approveStudents,
+    onSuccess: ({ data }) => {
+      if (data.approved.length) toast.success(`${data.approved.length} certificate(s) issued`);
+      if (data.failed.length) toast.error(`${data.failed.length} could not be approved`);
+      setSelectedIds([]);
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['latest-certificates'] });
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to approve selected students'),
+  });
 
   function clearStatusFilter() {
     setSearchParams((prev) => {
@@ -137,9 +158,26 @@ export default function StudentsListPage() {
           pageSizeOptions={[10, 25, 50]}
           loading={studentsQuery.isFetching}
           disableRowSelectionOnClick
+          checkboxSelection={isPendingView}
+          rowSelectionModel={{ type: 'include', ids: new Set(selectedIds) }}
+          onRowSelectionModelChange={(model) => setSelectedIds(Array.from(model.ids))}
           sx={{ border: 0, fontSize: 13.5 }}
         />
       </div>
+
+      {isPendingView && (
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+          <p className="text-sm text-slate-500">{selectedIds.length} selected</p>
+          <button
+            disabled={selectedIds.length === 0 || approveMutation.isPending}
+            onClick={() => approveMutation.mutate(selectedIds)}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <HiOutlineCheckCircle />
+            {approveMutation.isPending ? 'Approving…' : 'Approve'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

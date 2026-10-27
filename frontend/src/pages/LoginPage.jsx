@@ -6,7 +6,7 @@ import { useMutation } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { HiOutlineMail, HiOutlineLockClosed } from 'react-icons/hi';
 import { login as loginApi } from '../api/auth';
-import { useAuthStore } from '../store/authStore';
+import { storeForRole } from '../store/authStore';
 
 // Login ID is an internal identifier (e.g. "admin@mindq"), not necessarily a
 // full RFC-valid email — matches the backend's relaxed check in authRoutes.js.
@@ -19,7 +19,6 @@ const schema = z.object({
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const setAuth = useAuthStore((s) => s.login);
 
   const {
     register,
@@ -30,7 +29,11 @@ export default function LoginPage() {
   const mutation = useMutation({
     mutationFn: loginApi,
     onSuccess: ({ data }) => {
-      setAuth(data.token, data.admin);
+      // Written into the store matching the ROLE THE SERVER RETURNED, not
+      // whichever panel the login form happened to be reached from — that's
+      // what lets both panels carry independent, simultaneous sessions (see
+      // store/authStore.js).
+      storeForRole(data.admin.role).getState().login(data.token, data.admin);
       toast.success(`Welcome, ${data.admin.name}`);
       const fallback = data.admin.role === 'superadmin' ? '/admin' : '/management';
       navigate(location.state?.from?.pathname || fallback, { replace: true });
