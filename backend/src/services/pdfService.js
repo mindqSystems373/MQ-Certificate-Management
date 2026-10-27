@@ -45,24 +45,25 @@ const IMAGE_HEIGHT = 900;
 // and the same two target positions, rather than ellipsis-truncating names
 // the original system never would have cut off.
 const STUDENT_NAME_LENGTH_THRESHOLD = 25;
-const STUDENT_NAME_SHORT = { text: [410, 410], width: 205, size: 13 };
-const STUDENT_NAME_LONG = { text: [70, 452], width: 545, size: 13 };
+const STUDENT_NAME_SHORT = { text: [410, 406], width: 205, size: 15 };
+const STUDENT_NAME_LONG = { text: [70, 452], width: 545, size: 15 };
 
 const FIELDS = {
-  // x re-measured by rendering the blank template through this exact PDFKit
-  // pipeline and finding where the artwork's own "M" actually lands on the
-  // page (not estimated from the source JPEG's raw pixels, which render at a
-  // slightly different effective position once PDFKit stretches the image to
-  // fill an A4 page) — the previous value left the template's M exposed with
-  // a visible gap before the dynamic number instead of the number's own "M"
-  // covering it.
-  certificateNumber: { text: [114, 361], width: 450, size: 14 },
-  guardianName: { text: [200, 488], width: 415, size: 12 },
-  courseName: { text: [310, 538], width: 305, size: 12 },
-  startDate: { text: [205, 589], width: 135, size: 12 },
-  endDate: { text: [400, 589], width: 210, size: 12 },
-  performance: { text: [490, 623], width: 125, size: 12 },
-  issueDate: { text: [106, 758], width: 170, size: 12 },
+  // Every position below was derived from a validated linear model, not
+  // eyeballed: each dotted line's exact pixel row was found by scanning the
+  // blank template render for its periodic dot pattern (far more reliable
+  // than reading it off a screenshot), then an isolated test confirmed
+  // PDFKit places text at exactly render_y = (image_y * 841.89/900) * zoom
+  // with a glyph height of ~0.737x the font's point size — so each value
+  // here is computed to land a consistent ~15px (rendered) above its own
+  // line, not estimated by rendering-and-squinting.
+  certificateNumber: { text: [114, 353], width: 450, size: 16 },
+  guardianName: { text: [200, 497], width: 415, size: 14 },
+  courseName: { text: [310, 542], width: 305, size: 14 },
+  startDate: { text: [205, 589], width: 135, size: 13 },
+  endDate: { text: [400, 589], width: 210, size: 13 },
+  performance: { text: [490, 634], width: 125, size: 14 },
+  issueDate: { text: [106, 761], width: 170, size: 13 },
   // Deliberately no `grade` entry: the reference printout leaves the
   // "Grade." line blank — the legacy system only ever filled in the
   // "performance" line above it, never this one, so this reproduces that
