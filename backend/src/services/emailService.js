@@ -112,6 +112,8 @@ The link for verifying your certificate authenticity is given below as well.
 
 If you notice any errors in the certificate please bring it to our attention for correction / modifications at the earliest.
 
+Important: Please download your certificate from the link below and save it safely. This certificate will not be re-issued if you lose or misplace your copy.
+
 Wishing you all the very best.
 
 Name            : ${studentName}
@@ -134,6 +136,7 @@ Please review the below details &amp; click on the indicated link to download PD
 <p>Please note that you can provide an online verification reference to prospective employers or others interested in verifying your Mind Q certificate.<br/>
 The link for verifying your certificate authenticity is given below as well.</p>
 <p>If you notice any errors in the certificate please bring it to our attention for correction / modifications at the earliest.</p>
+<p><strong>Important:</strong> Please download your certificate from the link below and save it safely. This certificate will not be re-issued if you lose or misplace your copy.</p>
 <p>Wishing you all the very best.</p>
 <table style="border-top:1px solid #cbd5e1;padding-top:8px;margin-top:8px">
 ${row('Name', escapeHtml(studentName))}
