@@ -95,16 +95,16 @@ export default function LoginPage() {
             <img
               src="/mindq-logo.png"
               alt="Mind Q Systems"
-              className="h-20 md:h-24 w-auto mb-12 drop-shadow-[0_4px_14px_rgba(0,0,0,0.45)]"
+              className="h-28 md:h-36 w-auto mb-10 drop-shadow-[0_4px_14px_rgba(0,0,0,0.45)]"
             />
-            <h1 className="text-3xl md:text-[2.25rem] font-bold text-white leading-tight">
+            <h1 className="text-2xl md:text-[1.7rem] font-bold text-white leading-tight">
               Welcome to<br />
               <span className="text-crimson-500">Mind Q Systems</span>
             </h1>
-            <p className="mt-4 text-brand-200 text-base md:text-lg">
+            <p className="mt-3 text-brand-200 text-sm md:text-base">
               Secure Certificate Management System
             </p>
-            <div className="mt-10 h-1 w-20 rounded-full bg-crimson-500" />
+            <div className="mt-8 h-1 w-20 rounded-full bg-crimson-500" />
           </div>
         </div>
 
