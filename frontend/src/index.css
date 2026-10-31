@@ -16,6 +16,11 @@
   --color-gold-500: #c9a227;
   --color-gold-600: #a8841d;
 
+  /* Sampled from the Mind Q Systems logo mark for the login page's accent/CTA color */
+  --color-crimson-500: #e43a47;
+  --color-crimson-600: #cf2531;
+  --color-crimson-700: #b01f29;
+
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
 

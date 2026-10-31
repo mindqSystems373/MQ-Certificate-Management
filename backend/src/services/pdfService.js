@@ -57,8 +57,16 @@ const FIELDS = {
   // with a glyph height of ~0.737x the font's point size — so each value
   // here is computed to land a consistent ~15px (rendered) above its own
   // line, not estimated by rendering-and-squinting.
-  certificateNumber: { text: [114, 353], width: 450, size: 16 },
-  guardianName: { text: [200, 497], width: 415, size: 14 },
+  // certificateNumber's Y was nudged +5 (image px) after pixel-measuring the
+  // blank template: the preprinted "M" in "Cert. No. : M" has descending legs
+  // reaching further down than the old position covered, so a sliver of it
+  // was still visible beneath the bold overlay.
+  certificateNumber: { text: [114, 358], width: 450, size: 16 },
+  // guardianName's X was nudged from 200 to 225 after pixel-measuring the
+  // blank template: the preprinted "S/o./D/o./W/o" label's cursive strokes
+  // extend to x=206 and its dotted line only starts at x=217, so starting the
+  // name at x=200 overlapped the tail of the label itself.
+  guardianName: { text: [225, 497], width: 390, size: 14 },
   courseName: { text: [310, 542], width: 305, size: 14 },
   startDate: { text: [205, 589], width: 135, size: 13 },
   endDate: { text: [400, 589], width: 210, size: 13 },
