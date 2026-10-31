@@ -38,7 +38,17 @@ export default function LoginPage() {
       storeForRole(data.admin.role).getState().login(data.token, data.admin);
       toast.success(`Welcome, ${data.admin.name}`);
       const fallback = data.admin.role === 'superadmin' ? '/admin' : '/management';
-      navigate(location.state?.from?.pathname || fallback, { replace: true });
+      // location.state.from can be left over from an EARLIER, unrelated
+      // protected-route redirect (e.g. a stale bookmark to the other panel,
+      // or this exact page reached via a bounce from /management on a prior
+      // visit). Only honor it if it's actually under the role that just
+      // authenticated — otherwise a management session's leftover "from"
+      // would send a freshly-logged-in super admin to /management, which
+      // immediately bounces them right back to /login with that same stale
+      // state attached, looping forever instead of ever reaching /admin.
+      const from = location.state?.from?.pathname;
+      const destination = from && from.startsWith(fallback) ? from : fallback;
+      navigate(destination, { replace: true });
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || 'Login failed');
