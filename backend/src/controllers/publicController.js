@@ -38,6 +38,7 @@ async function renderCertificatePdf(certificate) {
     endDate: certificate.endDate,
     issueDate: certificate.issueDate,
     template: defaultTemplate,
+    verifyUrl: certificate.qrPayload,
   });
   return pdfData;
 }

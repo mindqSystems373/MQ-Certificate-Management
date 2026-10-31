@@ -151,8 +151,15 @@ async function generateCertificatePdf({
   endDate,
   issueDate,
   template,
+  // The certificate's own frozen qrPayload (set once at issue time from the
+  // actual frontend domain the admin was using that day — see
+  // studentController.js) is passed in here when available, so the QR code
+  // keeps working forever even if FRONTEND_URL is renamed later. Only
+  // falls back to rebuilding it from the env var for older records that
+  // predate qrPayload being stored, or local/manual calls that don't pass it.
+  verifyUrl: verifyUrlOverride,
 }) {
-  const verifyUrl = buildVerifyUrl(certificateNumber);
+  const verifyUrl = verifyUrlOverride || buildVerifyUrl(certificateNumber);
 
   // Generated before the PDF stream starts — pdfkit's doc.image() needs the
   // data URI ready synchronously when it's drawn, and QRCode.toDataURL is

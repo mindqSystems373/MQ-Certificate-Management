@@ -12,8 +12,31 @@ const { getNextCertificateNumber } = require('../services/certificateNumberServi
 const { sendAcknowledgmentEmail, sendCertificateIssuedEmail } = require('../services/emailService');
 const defaultTemplate = require('../templates/defaultTemplate');
 
-const FRONTEND_URL = (process.env.FRONTEND_URL || 'https://mindq-certificate-frontend.vercel.app').replace(/\/$/, '');
-const BACKEND_URL = (process.env.BACKEND_URL || 'https://mindq-certificate-backend.vercel.app').replace(/\/$/, '');
+// Only used as a last-resort fallback — see buildUrls() below, which derives
+// both URLs from the actual request instead, so renaming either Vercel
+// project's domain never breaks these links again.
+const FRONTEND_URL_FALLBACK = (process.env.FRONTEND_URL || 'https://mindq-certificate-frontend.vercel.app').replace(/\/$/, '');
+
+// The backend's own URL is always exactly the host this very request came in
+// on — Vercel's proxy headers make req.protocol/req.get('host') accurate
+// (see app.set('trust proxy', 1) in app.js), so there's nothing to configure
+// or ever get stale.
+//
+// The frontend's URL can't be derived the same way — this is a different
+// Vercel project/domain — but when this request came from the actual admin
+// dashboard (every approve/resend call does; it's a fetch() from the SPA),
+// the browser's own Origin header already carries the frontend's current,
+// real domain. Using that means a certificate approved right after renaming
+// the frontend's domain automatically gets the new domain baked into its
+// verification link — no env var to remember to update. This value then
+// gets stored on the certificate (qrPayload) and reused for that
+// certificate's QR/verify link forever after, exactly like its download PDF
+// never changes once issued.
+function buildUrls(req) {
+  const backendUrl = `${req.protocol}://${req.get('host')}`.replace(/\/$/, '');
+  const frontendUrl = (req.get('origin') || FRONTEND_URL_FALLBACK).replace(/\/$/, '');
+  return { backendUrl, frontendUrl };
+}
 
 async function nextStudentId() {
   const counter = await Settings.findOneAndUpdate(
@@ -92,6 +115,7 @@ const createStudent = asyncHandler(async (req, res) => {
  */
 const approveStudents = asyncHandler(async (req, res) => {
   const { studentIds } = req.body;
+  const { backendUrl, frontendUrl } = buildUrls(req);
 
   const templateSetting = await Settings.findOne({ key: 'certificateTemplate' });
   const template = templateSetting?.value || defaultTemplate;
@@ -107,7 +131,7 @@ const approveStudents = asyncHandler(async (req, res) => {
 
       const certificateNumber = await getNextCertificateNumber();
       const issueDate = new Date();
-      const verifyUrl = `${FRONTEND_URL}/verification?number=${encodeURIComponent(certificateNumber)}`;
+      const verifyUrl = `${frontendUrl}/verification?number=${encodeURIComponent(certificateNumber)}`;
 
       const certificate = await Certificate.create({
         certificateNumber,
@@ -151,7 +175,7 @@ const approveStudents = asyncHandler(async (req, res) => {
           courseName: student.course.name,
           facultyName: student.faculty.name,
           certificateNumber,
-          downloadUrl: `${BACKEND_URL}/api/public/certificates/${certificateNumber}/download`,
+          downloadUrl: `${backendUrl}/api/public/certificates/${certificateNumber}/download`,
           verifyUrl,
         });
       } catch (err) {
